@@ -81,6 +81,7 @@
 
   <button id="print" class="print"><span class="bar" id="bar"></span><b id="printText">Heute drucken</b><span id="printSub"></span></button>
   <div id="status" class="status"></div>
+  <button class="ghost" id="all" hidden>Alle Bluetooth-Geräte anzeigen</button>
 
   <details id="settingsBox">
     <summary>Einstellungen</summary>
@@ -114,7 +115,7 @@ let settings = { ...defaults };
 try { settings = { ...defaults, ...JSON.parse(localStorage.getItem("datumsetikett") || "{}") }; } catch {}
 const save = () => { try { localStorage.setItem("datumsetikett", JSON.stringify(settings)); } catch {} };
 
-let printer = null, busy = false;
+let printer = null, busy = false, pickAll = false;
 
 // ---------- label rendering
 function dateText() {
@@ -185,6 +186,7 @@ function buildSettings() {
 
 $("caption").value = settings.caption;
 $("caption").oninput = (e) => { settings.caption = e.target.value; save(); render(); };
+$("all").onclick = () => { pickAll = true; $("all").hidden = true; $("print").click(); };
 $("forget").onclick = () => { printer?.disconnect(); printer = null; settings.printer = null; save(); setConn("Nicht verbunden", ""); };
 
 // ---------- printing
@@ -195,6 +197,8 @@ function setProgress(p) { $("bar").style.width = p < 0 ? "0" : p + "%"; }
 async function ensurePrinter() {
   if (printer?.connected) return printer;
   if (!navigator.bluetooth) throw new Error("Web Bluetooth fehlt – bitte Chrome auf Android nutzen");
+  if (navigator.bluetooth.getAvailability && !(await navigator.bluetooth.getAvailability()))
+    throw new Error("Bluetooth ist aus oder für Chrome gesperrt – Bluetooth und Standort einschalten, Chrome „Geräte in der Nähe“ erlauben");
   setStatus("Verbinde…");
   if (!printer && settings.printer) printer = await Printer.remembered(settings.printer).catch(() => null);
   if (printer) {
@@ -202,7 +206,7 @@ async function ensurePrinter() {
     catch { printer = null; }
   }
   if (!printer) {
-    printer = await Printer.pick();
+    printer = await Printer.pick(pickAll);
     await printer.connect();
   }
   settings.printer = printer.name; save();
@@ -226,8 +230,10 @@ $("print").onclick = async () => {
     setStatus(`${settings.copies === 1 ? "Etikett" : settings.copies + " Etiketten"} gedruckt ✓`, "ok");
     setConn(p.name, "ok");
   } catch (e) {
-    if (e.name === "NotFoundError") setStatus("Kein Drucker gewählt");
-    else setStatus(e.message || String(e), "err");
+    // show the browser's real reason; offer the unfiltered device list as a fallback
+    const msg = /cancel/i.test(e.message || "") ? "Auswahl abgebrochen" : e.message || String(e);
+    setStatus(e.name === "NotFoundError" ? `Kein Drucker gewählt: ${msg}` : msg, "err");
+    $("all").hidden = e.name !== "NotFoundError";
     if (printer && !printer.connected) setConn("Nicht verbunden", "");
   } finally {
     busy = false;

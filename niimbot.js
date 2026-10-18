@@ -61,11 +61,10 @@ export class Printer {
   get connected() { return !!this.device.gatt?.connected && !!this.channel; }
 
   /** Shows the browser's device chooser (needs a user gesture). */
-  static async pick() {
-    const device = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: "B" }, { namePrefix: "D" }, { services: [SERVICE] }],
-      optionalServices: [SERVICE],
-    });
+  static async pick(all = false) {
+    const device = await navigator.bluetooth.requestDevice(all
+      ? { acceptAllDevices: true, optionalServices: [SERVICE] }
+      : { filters: [{ namePrefix: "B" }, { namePrefix: "D" }, { services: [SERVICE] }], optionalServices: [SERVICE] });
     return new Printer(device);
   }
 
