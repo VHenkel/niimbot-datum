@@ -196,7 +196,11 @@ function setProgress(p) { $("bar").style.width = p < 0 ? "0" : p + "%"; }
 
 async function ensurePrinter() {
   if (printer?.connected) return printer;
-  if (!navigator.bluetooth) throw new Error("Web Bluetooth fehlt – bitte Chrome auf Android nutzen");
+  if (!navigator.bluetooth) throw new Error(navigator.brave
+    ? "Brave blockiert Web Bluetooth: brave://flags/#brave-web-bluetooth-api auf „Enabled“ stellen und Brave neu starten – oder Chrome nutzen"
+    : "Web Bluetooth fehlt – bitte Chrome auf Android nutzen");
+  if (navigator.brave && !(await navigator.bluetooth.getAvailability?.()))
+    throw new Error("Brave blockiert Web Bluetooth: brave://flags/#brave-web-bluetooth-api auf „Enabled“ stellen und Brave neu starten – oder Chrome nutzen");
   if (navigator.bluetooth.getAvailability && !(await navigator.bluetooth.getAvailability()))
     throw new Error("Bluetooth ist aus oder für Chrome gesperrt – Bluetooth und Standort einschalten, Chrome „Geräte in der Nähe“ erlauben");
   setStatus("Verbinde…");
