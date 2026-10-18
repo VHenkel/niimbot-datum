@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Datumsetikett</title>
+<meta name="description" content="Ein Tipp – NIIMBOT B1 druckt ein Etikett mit dem heutigen Datum.">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000; --fg: #f2f2f2; --accent: #4c9eff; --accent-hover: #6bb0ff; --accent-deep: #142a45;
+    --surface: #101010; --surface-hover: #1c1c1c; --border: #242424; --dim: #8c8c8c; --faint: #555;
+    --ok: #66bb6a; --warn: #ffb300; --err: #ef5350;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); }
+  body {
+    font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    min-height: 100dvh; display: flex; justify-content: center;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  }
+  main { width: 100%; min-width: 0; max-width: 440px; display: flex; flex-direction: column; gap: 16px; }
+  header { display: flex; align-items: center; gap: 12px; }
+  header img { width: 36px; height: 36px; border-radius: 10px; }
+  header h1 { font-size: 20px; margin: 0; flex: 1; font-weight: 700; white-space: nowrap; }
+  .pill { max-width: 50%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--dim);
+          background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .dot.busy { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .preview { display: flex; justify-content: center; padding: 20px 8px; min-width: 0; }
+  canvas { width: 100%; min-width: 0; max-width: 360px; height: auto; border-radius: 10px; background: #fff;
+           box-shadow: 0 0 0 1px #1d3550, 0 0 28px rgba(76, 158, 255, .22); image-rendering: auto; }
+  .print { position: relative; overflow: hidden; width: 100%; min-height: 92px; border: 0; border-radius: 18px;
+           background: var(--accent); color: #000; font: inherit; cursor: pointer; display: flex; flex-direction: column;
+           align-items: center; justify-content: center; gap: 4px; transition: background .15s, transform .08s; }
+  .print:active { transform: scale(.985); }
+  .print:hover { background: var(--accent-hover); }
+  .print b { font-size: 24px; position: relative; }
+  .print span { font-size: 14px; opacity: .75; position: relative; }
+  .print .bar { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); transition: width .2s; }
+  .print.busy { background: var(--accent-deep); color: var(--fg); cursor: default; }
+  .status { min-height: 20px; text-align: center; font-size: 14px; color: var(--dim); }
+  .status.err { color: var(--err); } .status.ok { color: var(--ok); }
+  details { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+  summary { cursor: pointer; list-style: none; padding: 14px 16px; font-weight: 600; display: flex; justify-content: space-between; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "⌄"; color: var(--dim); }
+  details[open] summary::after { content: "⌃"; }
+  .settings { padding: 0 16px 16px; display: grid; gap: 14px; }
+  label.field { display: grid; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--faint); text-transform: uppercase; }
+  input[type=text] { font: inherit; font-size: 16px; color: var(--fg); background: var(--bg); border: 1px solid var(--border);
+                     border-radius: 10px; padding: 10px 12px; outline: none; text-transform: none; letter-spacing: 0; font-weight: 400; }
+  input[type=text]:focus { border-color: var(--accent); }
+  .seg { display: flex; gap: 2px; padding: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; }
+  .seg button { flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--dim); background: none; border: 0; border-radius: 8px;
+                padding: 9px 4px; cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .seg button.on { background: var(--accent); color: #000; font-weight: 700; }
+  .ghost { font: inherit; font-size: 14px; color: var(--fg); background: var(--bg); border: 1px solid var(--border);
+           border-radius: 10px; padding: 10px; cursor: pointer; }
+  .hint { font-size: 12px; color: var(--faint); line-height: 1.5; margin: 0; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="icon-192.png" alt="">
+    <h1>Datumsetikett</h1>
+    <span class="pill"><span id="dot" class="dot"></span><span id="conn">Nicht verbunden</span></span>
+  </header>
+
+  <div class="preview"><canvas id="label" width="384" height="240" aria-label="Vorschau des Etiketts"></canvas></div>
+
+  <button id="print" class="print"><span class="bar" id="bar"></span><b id="printText">Heute drucken</b><span id="printSub"></span></button>
+  <div id="status" class="status"></div>
+
+  <details id="settingsBox">
+    <summary>Einstellungen</summary>
+    <div class="settings">
+      <label class="field">Text über dem Datum<input type="text" id="caption" maxlength="40" placeholder="z. B. Geöffnet"></label>
+      <div class="field"><label class="field" style="margin:0">Format</label><div class="seg" id="format"></div></div>
+      <div class="field"><label class="field" style="margin:0">Etikett</label><div class="seg" id="size"></div></div>
+      <div class="field"><label class="field" style="margin:0">Anzahl</label><div class="seg" id="copies"></div></div>
+      <div class="field"><label class="field" style="margin:0">Druckdichte</label><div class="seg" id="density"></div></div>
+      <button class="ghost" id="forget">Anderen Drucker wählen</button>
+      <p class="hint">Funktioniert in Chrome auf Android (Web Bluetooth). B1 vorher kurz einschalten.
+        Über das Chrome-Menü „Zum Startbildschirm hinzufügen“ wird daraus ein App-Symbol.</p>
+    </div>
+  </details>
+</main>
+
+<script type="module">
+import { Printer, toPixels, DPMM, PRINTHEAD } from "./niimbot.js";
+
+const $ = (id) => document.getElementById(id);
+const FORMATS = [
+  { name: "18.10.2026", fmt: { day: "2-digit", month: "2-digit", year: "numeric" } },
+  { name: "18.10.26", fmt: { day: "2-digit", month: "2-digit", year: "2-digit" } },
+  { name: "18.10.", fmt: { day: "2-digit", month: "2-digit" } },
+  { name: "+ Uhrzeit", fmt: { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" } },
+];
+const SIZES = [[50, 30], [40, 30], [30, 15], [50, 50]];
+const defaults = { caption: "Geöffnet", format: 0, size: 0, copies: 1, density: 3, printer: null };
+
+let settings = { ...defaults };
+try { settings = { ...defaults, ...JSON.parse(localStorage.getItem("datumsetikett") || "{}") }; } catch {}
+const save = () => { try { localStorage.setItem("datumsetikett", JSON.stringify(settings)); } catch {} };
+
+let printer = null, busy = false;
+
+// ---------- label rendering
+function dateText() {
+  const d = new Intl.DateTimeFormat("de-DE", FORMATS[settings.format].fmt).format(new Date());
+  return settings.format === 2 ? d.replace(/\.?$/, ".") : d.replace(",", "");
+}
+
+function fit(ctx, text, weight, maxW, maxH) {
+  let size = maxH;
+  do { ctx.font = `${weight} ${size}px "Atkinson Hyperlegible", sans-serif`; size -= 2; }
+  while (size > 8 && ctx.measureText(text).width > maxW);
+  return size + 2;
+}
+
+function render() {
+  const [wmm, hmm] = SIZES[settings.size];
+  const w = Math.min(wmm * DPMM, PRINTHEAD), h = hmm * DPMM, pad = 12;
+  const c = $("label");
+  c.width = w; c.height = h;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "#000"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const cap = settings.caption.trim(), date = dateText();
+  const capH = cap ? (h - 2 * pad) * 0.3 : 0;
+  if (cap) { fit(ctx, cap, 400, w - 2 * pad, capH); ctx.fillText(cap, w / 2, pad + capH / 2); }
+  const dateH = h - 2 * pad - capH;
+  fit(ctx, date, 700, w - 2 * pad, Math.min(dateH, w * 0.28));
+  ctx.fillText(date, w / 2, pad + capH + dateH / 2);
+  // show exactly what the printer burns: pure black/white
+  const img = ctx.getImageData(0, 0, w, h), px = toPixels(img);
+  for (let i = 0; i < px.length; i++) { const v = px[i] ? 0 : 255; img.data.set([v, v, v, 255], i * 4); }
+  ctx.putImageData(img, 0, 0);
+  $("printSub").textContent = `${date}${settings.copies > 1 ? ` · ${settings.copies}×` : ""}`;
+  return { px, w, h };
+}
+
+// ---------- settings UI
+function segmented(id, items, key) {
+  const el = $(id);
+  el.innerHTML = "";
+  items.forEach((label, i) => {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.className = settings[key] === i ? "on" : "";
+    b.onclick = () => { settings[key] = i; save(); buildSettings(); render(); };
+    el.append(b);
+  });
+}
+
+function buildSettings() {
+  segmented("format", FORMATS.map((f) => f.name), "format");
+  segmented("size", SIZES.map(([a, b]) => `${a}×${b}`), "size");
+  const copies = $("copies"); copies.innerHTML = "";
+  [1, 2, 3, 4, 5].forEach((n) => {
+    const b = document.createElement("button");
+    b.textContent = n; b.className = settings.copies === n ? "on" : "";
+    b.onclick = () => { settings.copies = n; save(); buildSettings(); render(); };
+    copies.append(b);
+  });
+  const dens = $("density"); dens.innerHTML = "";
+  [1, 2, 3, 4, 5].forEach((n) => {
+    const b = document.createElement("button");
+    b.textContent = n; b.className = settings.density === n ? "on" : "";
+    b.onclick = () => { settings.density = n; save(); buildSettings(); };
+    dens.append(b);
+  });
+}
+
+$("caption").value = settings.caption;
+$("caption").oninput = (e) => { settings.caption = e.target.value; save(); render(); };
+$("forget").onclick = () => { printer?.disconnect(); printer = null; settings.printer = null; save(); setConn("Nicht verbunden", ""); };
+
+// ---------- printing
+function setConn(text, state) { $("conn").textContent = text; $("dot").className = "dot " + state; }
+function setStatus(text, cls = "") { $("status").textContent = text; $("status").className = "status " + cls; }
+function setProgress(p) { $("bar").style.width = p < 0 ? "0" : p + "%"; }
+
+async function ensurePrinter() {
+  if (printer?.connected) return printer;
+  if (!navigator.bluetooth) throw new Error("Web Bluetooth fehlt – bitte Chrome auf Android nutzen");
+  setStatus("Verbinde…");
+  if (!printer && settings.printer) printer = await Printer.remembered(settings.printer).catch(() => null);
+  if (printer) {
+    try { await printer.connect(); }
+    catch { printer = null; }
+  }
+  if (!printer) {
+    printer = await Printer.pick();
+    await printer.connect();
+  }
+  settings.printer = printer.name; save();
+  printer.device.addEventListener("gattserverdisconnected", () => setConn("Getrennt", ""), { once: true });
+  setConn(printer.name, "ok");
+  return printer;
+}
+
+$("print").onclick = async () => {
+  if (busy) return;
+  busy = true;
+  const btn = $("print");
+  btn.classList.add("busy");
+  setProgress(0);
+  try {
+    const p = await ensurePrinter();
+    const { px, w, h } = render();
+    $("printText").textContent = "Drucke…";
+    setConn(p.name, "busy");
+    await p.print(px, w, h, { copies: settings.copies, density: settings.density }, setProgress);
+    setStatus(`${settings.copies === 1 ? "Etikett" : settings.copies + " Etiketten"} gedruckt ✓`, "ok");
+    setConn(p.name, "ok");
+  } catch (e) {
+    if (e.name === "NotFoundError") setStatus("Kein Drucker gewählt");
+    else setStatus(e.message || String(e), "err");
+    if (printer && !printer.connected) setConn("Nicht verbunden", "");
+  } finally {
+    busy = false;
+    btn.classList.remove("busy");
+    $("printText").textContent = "Heute drucken";
+    setProgress(-1);
+  }
+};
+
+buildSettings();
+if (location.hash === "#einstellungen") $("settingsBox").open = true;
+document.fonts.load('700 64px "Atkinson Hyperlegible"').finally(render);
+render();
+setInterval(render, 60000); // keep the date current when left open
+</script>
+</body>
+</html>
